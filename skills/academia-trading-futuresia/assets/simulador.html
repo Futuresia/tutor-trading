@@ -1,0 +1,291 @@
+<title>Simulador Futuresia</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Geist+Mono:wght@400;600&display=swap">
+<style>
+  :root {
+    --casco: #0F1518; --panel: #151D21; --linea: #24323A; --acero: #6E8794; --cal: #F0F4F4;
+    --aqua: #35E3C4; --teal: #0FA896; --coral: #F07C6C; --texto2: #A9BAC2;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--casco); color: var(--cal); font: 15px/1.5 Inter, "Segoe UI", system-ui, sans-serif; }
+  .app { max-width: 980px; margin: 0 auto; padding-block: 20px 32px;
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 16px; }
+  h1 { margin: 0; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  h1 svg { height: 30px; width: auto; display: block; }
+  h1 .titulo { font-size: 18px; font-weight: 600; color: var(--texto2); border-left: 1px solid var(--linea); padding-left: 14px; }
+  .marca { color: var(--acero); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+  .controles { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 20px;
+               background: var(--panel); border: 1px solid var(--linea); border-radius: 12px; padding: 16px; }
+  .ctl label { display: flex; justify-content: space-between; font-size: 13px; color: var(--texto2); }
+  .ctl output { font-family: "Geist Mono", ui-monospace, monospace; color: var(--cal); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--aqua); }
+  .resumen { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 12px 2px 0; font-size: 13px; color: var(--texto2); }
+  .resumen b { font-family: "Geist Mono", ui-monospace, monospace; color: var(--cal); }
+  .aviso { color: var(--coral); }
+  nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 12px; }
+  nav button { background: transparent; color: var(--texto2); border: 1px solid var(--linea); border-radius: 999px;
+               padding: 7px 14px; font: inherit; font-size: 14px; cursor: pointer; }
+  nav button[aria-selected=true] { background: var(--aqua); color: var(--casco); border-color: var(--aqua); font-weight: 600; }
+  nav .tirada { margin-left: auto; }
+  .tarjeta { background: var(--panel); border: 1px solid var(--linea); border-radius: 12px; padding: 16px; }
+  canvas { width: 100%; height: 340px; display: block; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 14px; }
+  .stat { border: 1px solid var(--linea); border-radius: 10px; padding: 10px 12px; }
+  .stat small { display: block; color: var(--acero); font-size: 12px; }
+  .stat b { font-family: "Geist Mono", ui-monospace, monospace; font-size: 19px; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--texto2); margin: 0 0 8px; }
+  .leyenda i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+  .nota { color: var(--acero); font-size: 12px; margin-top: 6px; min-height: 1em; }
+  .mirar { margin: 14px 2px 0; color: var(--texto2); font-size: 14px; max-width: 70ch; }
+  .mirar b { color: var(--aqua); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--acero); font-weight: 600; font-size: 12px; padding: 6px 8px; border-bottom: 1px solid var(--linea); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--linea); font-family: "Geist Mono", ui-monospace, monospace; }
+  tr.tuyo td { background: rgba(53, 227, 196, .08); }
+  .barra { height: 10px; border-radius: 0 4px 4px 0; background: var(--coral); min-width: 2px; }
+  .tablawrap { overflow-x: auto; }
+  footer { margin-top: 18px; color: var(--acero); font-size: 12px; }
+</style>
+
+<div class="app">
+  <header>
+    <h1 class="logo"><svg viewBox="0 0 344 64" role="img" aria-label="Futuresia">
+      <path d="M25 32 C38 32 45 25 57 15" fill="none" stroke="#0FA896" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M25 32 C38 32 45 39 57 49" fill="none" stroke="#0FA896" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M25 32 H57" fill="none" stroke="#35E3C4" stroke-width="5.5" stroke-linecap="round"/>
+      <circle cx="14" cy="32" r="6.5" fill="#35E3C4"/>
+      <text x="84" y="42" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="30" font-weight="500" letter-spacing="6" fill="#F0F4F4">FUTURES</text>
+      <circle cx="264" cy="33" r="4.6" fill="#35E3C4"/>
+      <text x="278" y="42" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="30" font-weight="600" letter-spacing="6" fill="#35E3C4">IA</text>
+    </svg><span class="titulo">Simulador</span></h1>
+    <div class="marca">Mueve los números y mira qué pasa</div>
+  </header>
+
+  <section class="controles" aria-label="Parámetros del sistema">
+    <div class="ctl"><label for="acierto">Acierto <output id="o-acierto"></output></label>
+      <input type="range" id="acierto" min="0.2" max="0.8" step="0.01"></div>
+    <div class="ctl"><label for="ratio">Ratio (ganas ÷ pierdes) <output id="o-ratio"></output></label>
+      <input type="range" id="ratio" min="0.5" max="4" step="0.1"></div>
+    <div class="ctl"><label for="riesgo">Riesgo por operación <output id="o-riesgo"></output></label>
+      <input type="range" id="riesgo" min="0.005" max="0.3" step="0.005"></div>
+    <div class="ctl"><label for="coste">Coste por operación (R) <output id="o-coste"></output></label>
+      <input type="range" id="coste" min="0" max="0.3" step="0.01"></div>
+    <div class="ctl"><label for="ops">Operaciones <output id="o-ops"></output></label>
+      <input type="range" id="ops" min="50" max="1000" step="50"></div>
+    <div class="ctl"><label for="capital">Cuenta inicial <output id="o-capital"></output></label>
+      <input type="range" id="capital" min="1000" max="100000" step="1000"></div>
+  </section>
+  <div class="resumen" id="resumen"></div>
+
+  <nav role="tablist">
+    <button role="tab" data-p="cuentas">Mil cuentas</button>
+    <button role="tab" data-p="ruina">Ruina según el riesgo</button>
+    <button role="tab" data-p="monos">¿Ventaja o suerte?</button>
+    <button class="tirada" id="tirada" title="Misma regla, otra secuencia de operaciones al azar">Otra tirada</button>
+  </nav>
+
+  <section class="tarjeta" id="p-cuentas">
+    <div class="leyenda"><span><i style="background:var(--cal)"></i>mejor 10 %</span><span><i style="background:var(--aqua)"></i>cuenta típica (mediana)</span>
+      <span><i style="background:var(--coral)"></i>peor 10 %</span><span><i style="background:var(--acero)"></i>algunas cuentas sueltas</span></div>
+    <canvas id="c-cuentas" role="img" aria-label="Curvas de saldo de 500 cuentas con el mismo sistema"></canvas>
+    <div class="nota" id="n-cuentas"></div>
+    <div class="stats" id="s-cuentas"></div>
+    <p class="mirar"><b>Qué mirar:</b> deja todo igual y pasa el riesgo del 1 % al 10 % y luego al 25 %. Fíjate en la línea aqua (la
+      cuenta típica) y en la caída máxima. El sistema es el mismo; solo cambia cuánto apuestas.</p>
+  </section>
+
+  <section class="tarjeta" id="p-ruina" hidden>
+    <div class="tablawrap"><table>
+      <thead><tr><th>Riesgo por operación</th><th>Cuentas que pierden la mitad</th><th style="width:34%"></th><th>Cuenta típica al final</th></tr></thead>
+      <tbody id="t-ruina"></tbody>
+    </table></div>
+    <p class="mirar"><b>Qué mirar:</b> la cuenta típica crece al subir el riesgo… hasta un punto. A partir de ahí crece
+      <b>menos</b> y la ruina se dispara. La fila resaltada es tu riesgo actual.</p>
+  </section>
+
+  <section class="tarjeta" id="p-monos" hidden>
+    <div class="leyenda"><span><i style="background:var(--acero)"></i>5.000 monos (dirección al azar, sin ventaja)</span>
+      <span><i style="background:var(--cal)"></i>mejor 5 % de los monos</span><span><i style="background:var(--aqua)"></i>tu sistema</span></div>
+    <canvas id="c-monos" role="img" aria-label="Histograma de resultados de los monos frente a tu sistema"></canvas>
+    <div class="stats" id="s-monos"></div>
+    <p class="mirar"><b>Qué mirar:</b> pulsa «Otra tirada» varias veces. Con pocas operaciones, el mismo sistema unas veces gana a
+      casi todos los monos y otras no. Sube las operaciones y verás cómo la ventaja real se separa de la suerte.</p>
+  </section>
+
+  <footer>Formación, no asesoramiento financiero. Resultados en R: 1 R es lo que pierdes cuando salta el stop. · futuresia.com</footer>
+</div>
+
+<script>
+// Valores de arranque: Claude cambia SOLO esta línea con los números de la lección o del alumno.
+const CONFIG = { acierto: 0.40, ratio: 1.7, riesgo: 0.02, coste: 0, ops: 300, capital: 10000, pestana: "cuentas" };
+
+const C = { casco: "#0F1518", linea: "#24323A", acero: "#6E8794", cal: "#F0F4F4", aqua: "#35E3C4", coral: "#F07C6C" };
+const num = new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 });
+const dol = v => num.format(Math.round(v)) + " $";
+const pct = (v, d = 0) => (v * 100).toFixed(d).replace(".", ",") + " %";
+const dec = (v, d = 2) => v.toFixed(d).replace(".", ",");
+
+const P = { ...CONFIG };
+let semilla = 7;
+
+function rng(s) {
+  return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const cuantil = (orden, q) => orden[Math.min(orden.length - 1, Math.max(0, Math.round(q * (orden.length - 1))))];
+
+// ---------- controles ----------
+const fmt = { acierto: v => pct(v), ratio: v => dec(v, 1), riesgo: v => pct(v, 1), coste: v => dec(v, 2) + " R",
+              ops: v => num.format(v), capital: v => dol(v) };
+for (const k of Object.keys(fmt)) {
+  const el = document.getElementById(k);
+  el.value = P[k];
+  const pinta = () => { P[k] = parseFloat(el.value); document.getElementById("o-" + k).textContent = fmt[k](P[k]); };
+  pinta();
+  el.addEventListener("input", () => { pinta(); pedir(); });
+}
+document.querySelectorAll("nav [role=tab]").forEach(b => b.addEventListener("click", () => { P.pestana = b.dataset.p; pedir(); }));
+document.getElementById("tirada").addEventListener("click", () => { semilla++; pedir(); });
+
+let pendiente = false;
+function pedir() { if (!pendiente) { pendiente = true; requestAnimationFrame(() => { pendiente = false; dibujar(); }); } }
+addEventListener("resize", pedir);
+
+// ---------- lienzo ----------
+function lienzo(id) {
+  const cv = document.getElementById(id), r = cv.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  cv.width = Math.max(1, r.width * dpr); cv.height = r.height * dpr;
+  const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { g, w: r.width, h: r.height };
+}
+function marcas(a, b, n) {  // números redondos entre a y b
+  const bruto = (b - a) / n, base = 10 ** Math.floor(Math.log10(bruto)), e = bruto / base;
+  const paso = base * (e >= 7.5 ? 10 : e >= 3.5 ? 5 : e >= 1.5 ? 2 : 1), out = [];
+  for (let v = Math.ceil(a / paso) * paso; v <= b + 1e-9; v += paso) out.push(Math.abs(v) < 1e-9 ? 0 : v);
+  return out;
+}
+function ejes(g, w, h, m, x0, x1, y0, y1, fx, fy) {
+  g.font = "11px Inter, Segoe UI, sans-serif"; g.fillStyle = C.acero; g.strokeStyle = C.linea; g.lineWidth = 1;
+  for (const v of marcas(y0, y1, 4)) {
+    const y = m.t + (h - m.t - m.b) * (1 - (v - y0) / (y1 - y0));
+    g.beginPath(); g.moveTo(m.l, y); g.lineTo(w - m.r, y); g.stroke();
+    g.textAlign = "right"; g.textBaseline = "middle"; g.fillText(fy(v), m.l - 6, y);
+  }
+  for (const v of marcas(x0, x1, 5)) {
+    const x = m.l + (w - m.l - m.r) * (v - x0) / (x1 - x0);
+    g.textAlign = "center"; g.textBaseline = "top"; g.fillText(fx(v), x, h - m.b + 6);
+  }
+}
+
+// ---------- 1 · mil cuentas ----------
+function cuentas() {
+  const N = 500, n = P.ops, r = rng(semilla), cur = [], fin = new Float64Array(N), dds = new Float64Array(N), maxs = new Float64Array(N);
+  for (let k = 0; k < N; k++) {
+    const c = new Float64Array(n + 1); let s = P.capital, pico = s, dd = 0; c[0] = s;
+    for (let i = 1; i <= n; i++) {
+      const R = r() < P.acierto ? P.ratio - P.coste : -1 - P.coste;
+      s = Math.max(s + s * P.riesgo * R, 0); c[i] = s;
+      if (s > pico) pico = s; const d = (pico - s) / pico; if (d > dd) dd = d;
+    }
+    cur.push(c); fin[k] = s; dds[k] = dd; maxs[k] = pico;
+  }
+  const q = { 10: new Float64Array(n + 1), 50: new Float64Array(n + 1), 90: new Float64Array(n + 1), 95: new Float64Array(n + 1) };
+  const col = new Float64Array(N);
+  for (let i = 0; i <= n; i++) {
+    for (let k = 0; k < N; k++) col[k] = cur[k][i];
+    col.sort(); for (const p in q) q[p][i] = cuantil(col, p / 100);
+  }
+  const { g, w, h } = lienzo("c-cuentas"), m = { l: 70, r: 12, t: 10, b: 26 };
+  const tope = Math.max(...q[95], P.capital) * 1.1;
+  const X = i => m.l + (w - m.l - m.r) * i / n, Y = v => m.t + (h - m.t - m.b) * (1 - Math.min(v, tope * 1.5) / tope);
+  ejes(g, w, h, m, 0, n, 0, tope, v => num.format(v), dol);
+  g.save(); g.beginPath(); g.rect(m.l, m.t, w - m.l - m.r, h - m.t - m.b); g.clip();
+  g.setLineDash([4, 4]); g.strokeStyle = C.acero; g.beginPath(); g.moveTo(m.l, Y(P.capital)); g.lineTo(w - m.r, Y(P.capital)); g.stroke(); g.setLineDash([]);
+  g.globalAlpha = .16; g.strokeStyle = C.acero; g.lineWidth = 1;
+  const paso = Math.max(1, Math.floor(n / 300));
+  for (let k = 0; k < 60; k++) { g.beginPath(); for (let i = 0; i <= n; i += paso) i ? g.lineTo(X(i), Y(cur[k][i])) : g.moveTo(X(i), Y(cur[k][i])); g.stroke(); }
+  g.globalAlpha = 1; g.lineWidth = 2;
+  for (const [p, color] of [[10, C.coral], [90, C.cal], [50, C.aqua]]) {
+    g.strokeStyle = color; g.beginPath(); for (let i = 0; i <= n; i++) i ? g.lineTo(X(i), Y(q[p][i])) : g.moveTo(X(i), Y(q[p][i])); g.stroke();
+  }
+  g.restore();
+  const fuera = maxs.filter(v => v > tope).length;
+  document.getElementById("n-cuentas").textContent = fuera
+    ? `${fuera} cuentas se salen del gráfico por arriba (la que más sube llega a ${dol(Math.max(...maxs))}).` : "";
+  const fo = Float64Array.from(fin).sort(), ddo = Float64Array.from(dds).sort();
+  document.getElementById("s-cuentas").innerHTML = [
+    ["Cuenta típica al final", dol(cuantil(fo, .5))],
+    ["Cuentas que pierden dinero", pct(fin.filter(v => v < P.capital).length / N)],
+    ["Caída máxima típica", pct(cuantil(ddo, .5))],
+    ["El peor 10 % acaba con", "≤ " + dol(cuantil(fo, .1))],
+  ].map(([a, b]) => `<div class="stat"><small>${a}</small><b>${b}</b></div>`).join("");
+}
+
+// ---------- 2 · ruina según el riesgo ----------
+function ruina() {
+  const riesgos = [0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.2, 0.3], N = 2000, n = P.ops, r = rng(semilla + 1000);
+  const gana = new Uint8Array(N * n); for (let i = 0; i < gana.length; i++) gana[i] = r() < P.acierto ? 1 : 0;
+  const cerca = riesgos.reduce((a, b) => Math.abs(b - P.riesgo) < Math.abs(a - P.riesgo) ? b : a);
+  const filas = riesgos.map(f => {
+    let rotas = 0; const fin = new Float64Array(N);
+    for (let k = 0; k < N; k++) {
+      let s = 1, rota = false;
+      for (let i = 0; i < n; i++) { s *= 1 + f * (gana[k * n + i] ? P.ratio - P.coste : -1 - P.coste); if (s <= .5) rota = true; if (s <= 0) { s = 0; break; } }
+      rotas += rota; fin[k] = s;
+    }
+    fin.sort(); return { f, ruina: rotas / N, med: cuantil(fin, .5) };
+  });
+  document.getElementById("t-ruina").innerHTML = filas.map(x =>
+    `<tr class="${x.f === cerca ? "tuyo" : ""}"><td>${pct(x.f, 1)}</td><td>${pct(x.ruina)}</td>
+     <td><div class="barra" style="width:${Math.max(1, x.ruina * 100)}%"></div></td>
+     <td style="color:${x.med >= 1 ? C.aqua : C.coral}">${dol(P.capital * x.med)}</td></tr>`).join("");
+}
+
+// ---------- 3 · monos ----------
+function monos() {
+  const n = P.ops, M = 5000, r = rng(semilla + 2000), p0 = 1 / (1 + P.ratio);
+  let mio = 0; const ops = [];
+  for (let i = 0; i < n; i++) { const R = r() < P.acierto ? P.ratio - P.coste : -1 - P.coste; mio += R; ops.push(R); }
+  const tot = new Float64Array(M);
+  for (let k = 0; k < M; k++) { let s = 0; for (let i = 0; i < n; i++) s += r() < p0 ? P.ratio - P.coste : -1 - P.coste; tot[k] = s; }
+  const o = Float64Array.from(tot).sort(), p95 = cuantil(o, .95), gana = tot.filter(v => v < mio).length / M;
+  const salto = 1 + P.ratio, paso = salto * Math.max(1, Math.round((o[M - 1] - o[0]) / salto / 50));
+  const ini = o[0] - paso / 2, nb = Math.ceil((o[M - 1] - ini) / paso) + 1, cub = new Array(nb).fill(0);
+  for (const v of tot) cub[Math.floor((v - ini) / paso)]++;
+  const x0 = Math.min(ini, mio - paso), x1 = Math.max(ini + nb * paso, mio + paso), ymax = Math.max(...cub) * 1.1;
+  const { g, w, h } = lienzo("c-monos"), m = { l: 46, r: 12, t: 10, b: 26 };
+  const X = v => m.l + (w - m.l - m.r) * (v - x0) / (x1 - x0), Y = v => m.t + (h - m.t - m.b) * (1 - v / ymax);
+  ejes(g, w, h, m, x0, x1, 0, ymax, v => num.format(v) + " R", v => num.format(v));
+  g.fillStyle = C.acero; g.globalAlpha = .75;
+  cub.forEach((c, i) => { if (c) { const a = X(ini + i * paso), b = X(ini + (i + 1) * paso); g.fillRect(a, Y(c), Math.max(1, b - a - 1), Y(0) - Y(c)); } });
+  g.globalAlpha = 1;
+  g.strokeStyle = C.aqua; g.lineWidth = 2.5; g.beginPath(); g.moveTo(X(mio), m.t); g.lineTo(X(mio), h - m.b); g.stroke();
+  g.setLineDash([5, 4]); g.strokeStyle = C.cal; g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(p95), m.t); g.lineTo(X(p95), h - m.b); g.stroke();
+  g.setLineDash([]);
+  const media = mio / n, sd = Math.sqrt(ops.reduce((a, v) => a + (v - media) ** 2, 0) / (n - 1)), t = media / (sd / Math.sqrt(n));
+  document.getElementById("s-monos").innerHTML = [
+    ["Tu sistema en esta tirada", (mio >= 0 ? "+" : "") + dec(mio, 1) + " R"],
+    ["Ganas a los monos", pct(gana, 1)],
+    ["Mejor 5 % de los monos", "≥ " + dec(p95, 1) + " R"],
+    ["t de Student", dec(t, 2)],
+  ].map(([a, b]) => `<div class="stat"><small>${a}</small><b>${b}</b></div>`).join("") +
+    `<div class="stat" style="grid-column:1/-1"><small>Veredicto</small><b style="font-size:15px;font-family:inherit;color:${gana >= .95 ? C.aqua : C.coral}">${
+      gana >= .95 ? "Supera al 95 % de los monos: en esta tirada no parece suerte." : "No supera al 95 % de los monos: con estos datos no se distingue de la suerte."}</b></div>`;
+}
+
+// ---------- todo ----------
+function dibujar() {
+  const e = P.acierto * P.ratio - (1 - P.acierto) - P.coste;
+  const kelly = (P.acierto * (P.ratio - P.coste) - (1 - P.acierto) * (1 + P.coste)) / ((P.ratio - P.coste) * (1 + P.coste));
+  document.getElementById("resumen").innerHTML =
+    `<span>Esperanza por operación: <b>${(e >= 0 ? "+" : "") + dec(e, 3)} R</b></span>` +
+    `<span>Riesgo en $ por operación: <b>${dol(P.capital * P.riesgo)}</b></span>` +
+    (e > 0 ? `<span>Kelly teórico: <b>${pct(Math.max(0, kelly), 1)}</b> (casi nadie lo usa entero)</span>`
+           : `<span class="aviso">Este sistema no tiene ventaja: a la larga pierde, arriesgues lo que arriesgues.</span>`);
+  document.querySelectorAll("nav [role=tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.p === P.pestana));
+  for (const p of ["cuentas", "ruina", "monos"]) document.getElementById("p-" + p).hidden = p !== P.pestana;
+  ({ cuentas, ruina, monos })[P.pestana]();
+}
+dibujar();
+</script>

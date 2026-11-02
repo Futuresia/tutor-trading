@@ -1,0 +1,25 @@
+{
+  "name": "futuresia-tutor-trading",
+  "displayName": "Tutor de trading de Futuresia",
+  "description": "Tutor de trading en español: enseña desde cero los conceptos del trading y toda la estadística que hay detrás (esperanza, rachas, tamaño de posición, riesgo de ruina, ventaja frente a suerte, Monte Carlo), con ejercicios, simulaciones y un módulo de estadística avanzada. Formación, no asesoramiento financiero.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Futuresia",
+    "url": "https://futuresia.com"
+  },
+  "homepage": "https://futuresia.com",
+  "repository": "https://github.com/Futuresia/tutor-trading",
+  "license": "CC-BY-NC-4.0",
+  "keywords": [
+    "trading",
+    "futuros",
+    "estadistica",
+    "educacion",
+    "espanol",
+    "riesgo",
+    "backtesting"
+  ],
+  "icon": "./icon.png",
+  "documentationUrl": "https://futuresia.com",
+  "supportUrl": "https://futuresia.com"
+}
