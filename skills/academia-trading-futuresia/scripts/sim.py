@@ -58,7 +58,7 @@ def _plt():
         "axes.edgecolor": "#2C383F", "axes.labelcolor": CAL, "text.color": CAL,
         "xtick.color": ACERO, "ytick.color": ACERO, "grid.color": "#1E2A30", "axes.grid": True,
         "font.family": fuente, "font.size": 11,
-        "axes.spines.top": False, "axes.spines.right": False, "axes.titleweight": "bold", "axes.titlesize": 14,
+        "axes.spines.top": False, "axes.spines.right": False, "axes.axisbelow": True, "axes.titleweight": "bold", "axes.titlesize": 14,
     })
     return plt
 
@@ -792,11 +792,210 @@ def vela(a):
     _guardar(plt, fig, "vela", a)
 
 
+CONTRATOS = {  # tick y valor del tick en $ (referencias/mercados.md, especificaciones del CME)
+    "MNQ": (0.25, 0.50), "NQ": (0.25, 5.00), "MES": (0.25, 1.25), "ES": (0.25, 12.50), "MYM": (1.0, 0.50),
+    "M2K": (0.10, 0.50), "MGC": (0.10, 1.00), "GC": (0.10, 10.00), "MCL": (0.01, 1.00), "CL": (0.01, 10.00),
+}
+
+
+def _contrato(a):
+    m = (a.mercado or "MNQ").upper()
+    if m not in CONTRATOS:
+        sys.exit(f"Mercado desconocido: {m}. Usa uno de: {', '.join(CONTRATOS)}")
+    tick, valor = CONTRATOS[m]
+    return m, tick, valor, valor / tick
+
+
+def _dolar(x):
+    txt = f"{x:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return (txt[:-3] if txt.endswith(",00") else txt) + " $"
+
+
+def _num(x):
+    return f"{x:g}".replace(".", ",")
+
+
+def _camino(inicio, fin, n, ruido, rng):
+    """Un recorrido de precio que va de inicio a fin con ruido (puente browniano), para dibujos."""
+    z = np.concatenate([[0.0], np.cumsum(rng.normal(0, 1, n - 1))])
+    z = z - np.linspace(0, 1, n) * z[-1]
+    return inicio + (fin - inicio) * np.linspace(0, 1, n) + z * ruido
+
+
+def tick(a):
+    """1.4 · Cuánto vale un movimiento: puntos → ticks → dólares, con 1 a 5 contratos."""
+    plt = _plt()
+    m, t, v, punto = _contrato(a)
+    pts = a.puntos if a.puntos is not None else 20.0
+    ticks = pts / t
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.6), gridspec_kw={"width_ratios": [1.15, 1]})
+    rng = np.random.default_rng(a.semilla if a.semilla is not None else 4)
+    base = a.entrada or 20000.0
+    y = _camino(base, base + pts, 60, abs(pts) * 0.12, rng)
+    ax1.plot(y, color=AQUA, lw=2)
+    ax1.axhline(base, color=ACERO, lw=.8, ls="--"); ax1.axhline(base + pts, color=ACERO, lw=.8, ls="--")
+    ax1.annotate("", xy=(61, base + pts), xytext=(61, base), arrowprops=dict(arrowstyle="<->", color=CAL, lw=1.2))
+    ax1.text(62.5, base + pts / 2, f"{_num(pts)} puntos\n= {_num(ticks)} ticks", va="center", color=CAL)
+    ax1.set(xlim=(0, 80), title=f"El {m} se mueve {_num(pts)} puntos", xticks=[])
+    ax1.set_ylabel("Precio")
+    n = np.arange(1, 6)
+    res = abs(ticks) * v * n
+    ax2.bar(n, res, color=[AQUA if k == (a.contratos or 1) else TEAL for k in n], width=.6)
+    for k, r in zip(n, res):
+        ax2.text(k, r, _dolar(r), ha="center", va="bottom", color=CAL, fontsize=10)
+    ax2.set(title="Lo que mueve según los contratos", xlabel="Contratos", ylabel="Dólares", xticks=n)
+    print(f"{m}: tick {_num(t)} = {_dolar(v)} · 1 punto = {_dolar(punto)}")
+    print(f"{_num(pts)} puntos = {_num(ticks)} ticks × {_dolar(v)} = {_dolar(ticks * v)} por contrato (antes de comisiones)")
+    _guardar(plt, fig, "tick", a)
+
+
+def largocorto(a):
+    """1.1 y 1.6 · Largo y corto: el mismo movimiento; lo que gana uno lo pierde el otro."""
+    plt = _plt()
+    m, t, v, punto = _contrato(a)
+    e = a.entrada or 20000.0
+    s_ = a.salida_precio if a.salida_precio is not None else e + 20
+    pts = s_ - e
+    rng = np.random.default_rng(a.semilla if a.semilla is not None else 7)
+    y = _camino(e, s_, 70, max(abs(pts), 4) * 0.035, rng)
+    fig, axs = plt.subplots(1, 3, figsize=(13, 4.4), gridspec_kw={"width_ratios": [1.4, 1, 1]})
+    axs[0].plot(y, color=CAL, lw=1.8)
+    axs[0].scatter([0, 69], [e, s_], color=[ACERO, CAL], zorder=3, s=40)
+    axs[0].text(1, e, f"  entra {_num(e)}", va="bottom", color=CAL)
+    axs[0].text(68, s_, f"sale {_num(s_)}  ", va="bottom", ha="right", color=CAL)
+    axs[0].set(title=f"{m}: de {_num(e)} a {_num(s_)} ({'+' if pts >= 0 else ''}{_num(pts)} puntos)", xticks=[], ylabel="Precio")
+    for ax, signo, nombre in ((axs[1], 1, "Largo (compra primero)"), (axs[2], -1, "Corto (vende primero)")):
+        pnl = (y - e) * punto * signo
+        col = AQUA if pnl[-1] >= 0 else CORAL
+        ax.fill_between(range(len(pnl)), 0, pnl, where=pnl >= 0, color=AQUA, alpha=.25, lw=0)
+        ax.fill_between(range(len(pnl)), 0, pnl, where=pnl < 0, color=CORAL, alpha=.25, lw=0)
+        ax.plot(pnl, color=col, lw=1.8); ax.axhline(0, color=ACERO, lw=.8)
+        ax.set(title=f"{nombre}\n{'+' if pnl[-1] >= 0 else ''}{_dolar(pnl[-1])}", xticks=[])
+    axs[1].set_ylabel("Resultado de 1 contrato")
+    print(f"Largo: {_num(pts)} puntos × {_dolar(punto)} = {_dolar(pts * punto)} · Corto: {_dolar(-pts * punto)} (antes de comisiones)")
+    print("En futuros cada contrato tiene un comprador y un vendedor: lo que gana uno lo pierde el otro, y el bróker cobra a los dos.")
+    _guardar(plt, fig, "largocorto", a)
+
+
+def ordenes(a):
+    """1.7 · Mercado, límite y stop sobre el mismo recorrido de precio, con el deslizamiento del stop."""
+    plt = _plt()
+    rng = np.random.default_rng(a.semilla if a.semilla is not None else 11)
+    y = np.concatenate([_camino(100, 96, 40, .5, rng), _camino(96, 101, 35, .5, rng), [102.6], _camino(102.6, 105, 25, .4, rng)])
+    fig, ax = plt.subplots(figsize=(11, 5))
+    ax.plot(y, color=CAL, lw=1.6)
+    lim, stp = 96.5, 101.5
+    i_lim = int(np.argmax(y <= lim)); i_stp = int(np.argmax(y >= stp))
+    ax.axhline(lim, color=TEAL, lw=1, ls="--"); ax.axhline(stp, color=CORAL, lw=1, ls="--")
+    ax.scatter([0], [y[0]], color=CAL, s=60, zorder=3)
+    ax.annotate("Mercado: entra ya,\nal precio que haya", (0, y[0]), (5, y[0] + 2.6), color=CAL,
+                arrowprops=dict(arrowstyle="->", color=ACERO))
+    ax.scatter([i_lim], [lim], color=TEAL, s=60, zorder=3)
+    ax.annotate(f"Límite de compra a {_num(lim)}:\nsolo a ese precio o mejor", (i_lim, lim), (i_lim + 6, lim - 2.6), color=TEAL,
+                arrowprops=dict(arrowstyle="->", color=TEAL))
+    ax.scatter([i_stp], [y[i_stp]], color=CORAL, s=60, zorder=3)
+    ax.annotate(f"Stop de compra a {_num(stp)}: se activa al tocarlo y sale a mercado\n"
+                f"→ se llena a {_num(round(y[i_stp], 1))} (deslizamiento de {_num(round(y[i_stp] - stp, 1))})",
+                (i_stp, y[i_stp]), (i_stp - 62, y[i_stp] + 2.2), color=CORAL, arrowprops=dict(arrowstyle="->", color=CORAL))
+    ax.set(title="Tres órdenes sobre el mismo precio", xticks=[], ylabel="Precio", ylim=(min(y) - 4, max(y) + 4.5))
+    print("Mercado: seguro que entra, no sabes el precio exacto · Límite: sabes el precio, no si entrará · "
+          "Stop: se activa al tocar un precio y sale a mercado (puede deslizar)")
+    _guardar(plt, fig, "ordenes", a)
+
+
+def apalancamiento(a):
+    """1.8 · Margen no es riesgo: lo que mueve el contrato frente a lo que tienes en la cuenta."""
+    plt = _plt()
+    m, t, v, punto = _contrato(a)
+    precio = a.entrada or 20000.0
+    cuenta = a.cuenta if a.cuenta is not None else 1000.0
+    pts = abs(a.puntos) if a.puntos is not None else 150.0
+    c = a.contratos or 5
+    expo, perd = precio * punto * c, pts * punto * c
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4.6))
+    ax1.bar(["Tu cuenta", f"Lo que mueves\n({c} {m} a {_num(precio)})"], [cuenta, expo], color=[ACERO, TEAL], width=.55)
+    for i, x in enumerate([cuenta, expo]):
+        ax1.text(i, x, _dolar(x), ha="center", va="bottom", color=CAL)
+    ax1.set(title=f"Mueves {_num(round(expo / cuenta))} veces tu cuenta", ylabel="Dólares")
+    ax2.bar(["Tu cuenta", f"Pérdida si cae\n{_num(pts)} puntos"], [cuenta, perd], color=[ACERO, CORAL], width=.55)
+    for i, x in enumerate([cuenta, perd]):
+        ax2.text(i, x, _dolar(x), ha="center", va="bottom", color=CAL)
+    ax2.set(title=f"Esa caída se lleva el {_num(round(100 * perd / cuenta))} % de la cuenta")
+    print(f"Exposición: {_num(precio)} × {_dolar(punto)} × {c} = {_dolar(expo)} · cuenta {_dolar(cuenta)}")
+    print(f"Una caída de {_num(pts)} puntos: {_num(pts)} × {_dolar(punto)} × {c} = {_dolar(perd)} "
+          f"({_num(round(100 * perd / cuenta))} % de la cuenta). El riesgo lo marcan el stop y los contratos, no el margen.")
+    _guardar(plt, fig, "apalancamiento", a)
+
+
+def _sesion_sintetica(rng, n, deriva):
+    """Velas de una sesión inventada (ilustrativa): volumen en U y, si se pide, una tendencia."""
+    ola = 1 + 0.8 * np.cos(np.linspace(0, 2 * np.pi, n)) ** 2
+    cierre = 100 + np.cumsum(rng.normal(deriva, 1.0, n) * ola * 0.25)
+    apertura = np.concatenate([[100], cierre[:-1]])
+    mech = np.abs(rng.normal(0, .18, (2, n)))
+    maximo, minimo = np.maximum(apertura, cierre) + mech[0], np.minimum(apertura, cierre) - mech[1]
+    vol = (1.6 + 1.4 * np.cos(np.linspace(0, 2 * np.pi, n))) * rng.uniform(.7, 1.3, n) * 1000
+    return apertura, maximo, minimo, cierre, vol
+
+
+def _velas(ax, o, h, l, c):
+    from matplotlib.patches import Rectangle
+    for i, (oo, hh, ll, cc) in enumerate(zip(o, h, l, c)):
+        col = AQUA if cc >= oo else CORAL
+        ax.plot([i, i], [ll, hh], color=col, lw=.9)
+        ax.add_patch(Rectangle((i - .32, min(oo, cc)), .64, max(abs(cc - oo), .02), color=col))
+
+
+def sesion(a):
+    """2.2–2.5 · Una sesión (inventada): velas, VWAP y volumen. El volumen en U: alto en la apertura y el cierre."""
+    plt = _plt()
+    rng = np.random.default_rng(a.semilla if a.semilla is not None else 3)
+    mins = a.minutos or 5
+    n = max(10, int(390 / mins))
+    o, h, l, c, vol = _sesion_sintetica(rng, n, 0.15)
+    vwap = np.cumsum((h + l + c) / 3 * vol) / np.cumsum(vol)
+    fig, (ax, axv) = plt.subplots(2, 1, figsize=(12, 6.2), sharex=True, gridspec_kw={"height_ratios": [3, 1]})
+    _velas(ax, o, h, l, c)
+    ax.plot(vwap, color="#E9C46A", lw=1.8, label="VWAP")
+    ax.legend(loc="upper left", frameon=False)
+    ax.set(title=f"Una sesión en velas de {mins} min (inventada, para ver la forma)", ylabel="Precio")
+    axv.bar(range(n), vol, color=[AQUA if cc >= oo else CORAL for oo, cc in zip(o, c)], width=.7, alpha=.8)
+    axv.set(ylabel="Volumen", xticks=[0, n // 2, n - 1], xticklabels=["8:30", "11:45", "15:00"], yticks=[])
+    print(f"{n} velas de {mins} min entre las 8:30 y las 15:00 (Chicago), con datos inventados. El VWAP es el precio medio "
+          "ponderado por volumen desde la apertura; el volumen suele ser alto al abrir y al cerrar y bajo a mediodía.")
+    _guardar(plt, fig, "sesion", a)
+
+
+def tendencia(a):
+    """2.4 · Tendencia frente a rango, con la volatilidad (ATR) de cada uno. Inventado, para ver la forma."""
+    plt = _plt()
+    rng = np.random.default_rng(a.semilla if a.semilla is not None else 5)
+    fig, axs = plt.subplots(1, 2, figsize=(12, 4.6))
+    n = 60
+    o, h, l, c, _ = _sesion_sintetica(rng, n, .9)
+    _velas(axs[0], o, h, l, c)
+    atr_t = float(np.mean(h - l))
+    c2 = 100 + 1.3 * np.sin(np.linspace(0, 6 * np.pi, n)) + rng.normal(0, .25, n)
+    o2 = np.concatenate([[100], c2[:-1]])
+    m2 = np.abs(rng.normal(0, .18, (2, n)))
+    h2, l2 = np.maximum(o2, c2) + m2[0], np.minimum(o2, c2) - m2[1]
+    _velas(axs[1], o2, h2, l2, c2)
+    axs[1].axhline(101.5, color=ACERO, lw=.8, ls="--"); axs[1].axhline(98.5, color=ACERO, lw=.8, ls="--")
+    atr_r = float(np.mean(h2 - l2))
+    for ax, titulo, atr in ((axs[0], "Tendencia: máximos y mínimos crecientes", atr_t), (axs[1], "Rango: va y viene entre dos niveles", atr_r)):
+        ax.set(title=titulo, xticks=[])
+        ax.text(0.02, 0.95, f"ATR (recorrido medio por vela): {_num(round(atr, 2))}", transform=ax.transAxes, va="top", color=ACERO)
+    print("Datos inventados. Una estrategia de tendencia sufre en rango y al revés. Si tu stop es más pequeño que el ATR, "
+          "saltará a menudo por puro ruido.")
+    _guardar(plt, fig, "tendencia", a)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("leccion", choices=["esperanza", "ley", "rachas", "cuentas", "ruina", "tamano", "monos", "sobreajuste",
                                         "montecarlo", "tstat", "colas", "bootstrap", "metricas", "muestra", "kelly", "fondeo",
-                                        "cartera", "aleatoriedad", "bayes", "cusum", "mae", "vela"])
+                                        "cartera", "aleatoriedad", "bayes", "cusum", "mae", "vela",
+                                        "tick", "largocorto", "ordenes", "apalancamiento", "sesion", "tendencia"])
     ap.add_argument("--acierto", type=float, default=0.45)
     ap.add_argument("--ratio", type=float, default=1.5)
     ap.add_argument("--coste", type=float, default=0.0, help="coste por operación en R (comisión + deslizamiento)")
@@ -819,6 +1018,13 @@ def main():
     ap.add_argument("--deriva", type=float, default=0.004, help="mae: ventaja por paso en las operaciones sintéticas")
     for k in ("apertura", "maximo", "minimo", "cierre"):
         ap.add_argument(f"--{k}", type=float, help="vela: precio de la vela del alumno")
+    ap.add_argument("--mercado", help="tick, largocorto, apalancamiento: MNQ, MES, MGC, NQ, ES… (por defecto MNQ)")
+    ap.add_argument("--puntos", type=float, help="tick, apalancamiento: puntos que se mueve el precio")
+    ap.add_argument("--contratos", type=int, help="tick, apalancamiento: número de contratos")
+    ap.add_argument("--entrada", type=float, help="tick, largocorto, apalancamiento: precio de entrada")
+    ap.add_argument("--salida-precio", dest="salida_precio", type=float, help="largocorto: precio de salida")
+    ap.add_argument("--cuenta", type=float, help="apalancamiento: dinero en la cuenta")
+    ap.add_argument("--minutos", type=int, help="sesion: minutos por vela (5 por defecto)")
     ap.add_argument("--semilla", type=int)
     ap.add_argument("--salida")
     a = ap.parse_args()
